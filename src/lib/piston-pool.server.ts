@@ -267,7 +267,7 @@ export function validateNodeUrl(raw: string): { url: string; error: string | nul
       error:
         normalized.problem === "local_url"
           ? "localhost / 127.0.0.1 cannot be reached from the backend. Use the VM's routable address."
-          : "Enter a valid Piston API URL, for example http://203.0.113.10:2000",
+          : "Enter a valid Piston API URL, for example http://203.0.113.10:8080",
     };
   }
   let host = "";
