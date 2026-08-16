@@ -666,11 +666,6 @@ export const getCodeProblem = createServerFn({ method: "POST" })
           .eq("problemId", data.problemId)
           .eq("isHidden", true),
         db
-          .from("test_cases")
-          .select("id", { count: "exact", head: true })
-          .eq("problemId", data.problemId)
-          .eq("isHidden", true),
-        db
           .from("programming_submissions")
           .select("id, language, status, score, passedTests, totalTests, executionMs, createdAt")
           .eq("studentId", claims.studentId)

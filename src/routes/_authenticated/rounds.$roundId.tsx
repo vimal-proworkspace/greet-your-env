@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getRoundPlay, saveAnswer, submitRound } from "@/lib/student.functions";
@@ -105,6 +105,26 @@ function RoundPage() {
   const canPlay = Boolean(data?.canPlay) && roundState === "LIVE";
   const paused = roundState === "PAUSED";
   const proctor = useProctor(roundId, canPlay);
+  const navigate = useNavigate();
+
+  // Round 2 / Round 3 are problem rounds: entering the round opens the first
+  // Admin-configured problem straight away, and the workspace's problem
+  // navigator handles Next / Submit from there.
+  const firstProblem = data?.debugProblems[0] ?? data?.codeProblems[0] ?? null;
+  const problemKind: "debug" | "code" = data?.debugProblems.length ? "debug" : "code";
+  const hasProblemList = Boolean(
+    data && data.questions.length === 0 && (data.debugProblems.length || data.codeProblems.length),
+  );
+  useEffect(() => {
+    if (!canPlay || !firstProblem) return;
+    if (data && data.questions.length > 0) return;
+    void navigate({
+      to: "/problems/$problemId",
+      params: { problemId: firstProblem.id },
+      search: { kind: problemKind },
+      replace: true,
+    });
+  }, [canPlay, firstProblem?.id, problemKind]);
 
   // Any admin action (start, pause, end, restart) or an expired clock reloads
   // the authoritative attempt immediately — no manual refresh.
@@ -310,6 +330,14 @@ function RoundPage() {
           ))}
 
           {data.questions.length === 0 ? (
+            hasProblemList ? null : (
+              <p className="text-sm text-destructive">
+                No problems have been configured for this round.
+              </p>
+            )
+          ) : null}
+
+          {data.questions.length === 0 && hasProblemList ? (
             <Button
               className="mt-6"
               disabled={finish.isPending}
