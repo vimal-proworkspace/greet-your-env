@@ -158,3 +158,33 @@ remain in server logs.
 - **Realtime loss:** there are no sockets to lose — the UI polls REST/server functions, so
   recovery is automatic on the next poll or page load.
 - **Results:** publication is enforced server-side; hiding is not a frontend concern.
+
+## 9. Vercel deployment (alternative target)
+
+The app also builds for Vercel with no architectural changes.
+
+- **Preset:** `vite.config.ts` pins Nitro's `vercel` preset when `VERCEL=1` (or
+  `NITRO_PRESET=vercel`) is present. Lovable/Cloudflare builds are unaffected.
+- **Build output:** Build Output API v3 in `.vercel/output` — static assets in
+  `static/`, one Node serverless function `__server.func`
+  (`runtime: nodejs22.x`, streaming enabled) serving SSR, server functions and
+  `/api/*` routes. `vercel.json` sets `framework: null` and
+  `buildCommand: npm run build` so Vercel does not re-detect Vite.
+- **Runtime:** Node 22 serverless (not Edge). `postgres`, `@supabase/supabase-js`,
+  `bcryptjs`, `jose` and `node:fs/promises` all work; the per-request Postgres
+  client in `pg-request.server.ts` remains correct.
+- **Environment variables:** identical names, set in Vercel Project Settings for
+  Production and Preview. Server secrets stay unprefixed and are read inside
+  handlers; only `VITE_*` values reach the browser.
+- **Piston nodes:** unchanged. Node URLs stay server-only; the browser never
+  calls Piston. Vercel's Node runtime performs unrestricted outbound HTTP,
+  including plain `http://` on port 8080, so `http://148.113.52.23:8080` and
+  `http://148.113.52.28:8080` are reachable from server functions (this is what
+  the Cloudflare edge runtime blocked with `error code: 1003`). Vercel egress IPs
+  are dynamic — if the VMs are firewalled by source IP, allow Vercel egress or
+  enable Secure Compute with a static IP.
+- **Bootstrap file store:** the Vercel filesystem is read-only apart from `/tmp`.
+  Set `BOOTSTRAP_CONFIG_PATH=/tmp/codearena-config.json` (ephemeral) and rely on
+  Vercel environment variables / the database for durable configuration.
+- **Rate limiting** stays per-instance; on Vercel each lambda instance has its own
+  counters (same limitation as documented in section 6).
