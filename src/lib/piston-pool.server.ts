@@ -194,8 +194,6 @@ function initialNodes(): { id: string; url: string; enabled: boolean; maxConcurr
 }
 
 async function seedNodes(client: PgClient): Promise<void> {
-  const rowsExisting = await client.unsafe("select count(*)::int as n from codearena_private.piston_nodes");
-  void rowsExisting;
   const rows = await client.unsafe("select count(*)::int as n from codearena_private.piston_nodes");
   if (Number(rows[0]?.["n"] ?? 0) > 0) return;
   for (const node of initialNodes()) {
@@ -208,6 +206,31 @@ async function seedNodes(client: PgClient): Promise<void> {
     );
   }
   console.info("[piston-pool] seeded initial Piston nodes");
+}
+
+/**
+ * One-time self-heal for pools seeded before the VMs were re-exposed: the
+ * hosting environment cannot dial outbound port 2000, so any node still
+ * pointing there is repointed to the routable 8080 listener of the same host.
+ */
+async function repointBlockedPorts(client: PgClient): Promise<void> {
+  try {
+    const rows = await client.unsafe(
+      `update codearena_private.piston_nodes
+          set url = replace(url, ':2000', ':8080'),
+              health_status = 'OFFLINE',
+              last_error = '',
+              failure_count = 0,
+              updated_at = now()
+        where url like '%:2000%'
+        returning node_id`,
+    );
+    if (rows.length) {
+      console.info(`[piston-pool] repointed ${rows.length} node(s) from blocked port 2000 to 8080`);
+    }
+  } catch (err) {
+    console.error("[piston-pool] could not repoint blocked-port nodes", err);
+  }
 }
 
 export async function listNodes(): Promise<PistonNode[]> {
