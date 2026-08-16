@@ -112,7 +112,14 @@ export async function readProviderJson(res: Response, label: string, expectedPat
 
     let hint = "";
     if (res.status === 401 || res.status === 403) {
-      hint = codespaces
+      const edgeBlocked =
+        /error code: 100\d/i.test(snippet) || (res.headers.has("cf-ray") && !/json/i.test(contentType));
+      hint = edgeBlocked
+        ? " The request was refused by the hosting platform's outbound network edge before it reached the engine" +
+          (/error code: 1003/i.test(snippet)
+            ? " (Cloudflare error 1003 — direct IP destinations are not allowed; use a DNS hostname for the engine)."
+            : " (Cloudflare edge rejection). This is a network/egress problem, not engine authentication.")
+        : codespaces
         ? " The forwarded Codespaces port is PRIVATE — set the port visibility to Public, or the engine requires an API key."
         : " The engine requires authentication — configure its API key / token, or make the endpoint publicly reachable.";
     } else if (res.status === 404) {
