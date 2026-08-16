@@ -460,7 +460,7 @@ function DebugWorkspace({ problemId }: { problemId: string }) {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Keep working</AlertDialogCancel>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={() => finishRound.mutate()}>
                   Submit round
                 </AlertDialogAction>
@@ -816,7 +816,7 @@ function CodeWorkspace({ problemId }: { problemId: string }) {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Keep working</AlertDialogCancel>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={() => finishRound.mutate()}>
                   Submit round
                 </AlertDialogAction>
