@@ -337,3 +337,37 @@ export function describeEgressPortProblem(raw: string): string {
     `no change to Piston itself or any authentication is needed.`
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Direct-IP egress restriction (Cloudflare error code 1003)           */
+/* ------------------------------------------------------------------ */
+
+/** True when the base URL addresses a bare IPv4/IPv6 literal instead of a hostname. */
+export function isDirectIpHost(raw: string): boolean {
+  try {
+    const host = new URL(raw).hostname;
+    return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.startsWith("[");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The backend's outbound `fetch()` leaves through Cloudflare's edge. A request
+ * addressed to a bare IP literal is refused there with
+ * `HTTP 403 / text/plain / "error code: 1003"` (direct IP access not allowed)
+ * before it ever reaches the VM — which is exactly why the very same URL
+ * answers HTTP 200 from a laptop. Piston authentication is not involved.
+ */
+export function describeDirectIpProblem(raw: string): string {
+  const info = urlPort(raw);
+  const port = info ? info.port : 8080;
+  return (
+    `The backend could not reach this node because the address is a bare IP. Outbound requests from the ` +
+    `CodeArena hosting runtime pass through Cloudflare, which refuses direct-IP destinations with ` +
+    `"HTTP 403 – error code: 1003" before the request reaches the VM. Piston itself is fine and needs no ` +
+    `authentication. Fix: give the VM a DNS hostname (for example piston1.your-domain.com pointing at this ` +
+    `machine) and configure the node as http://piston1.your-domain.com:${port} — or https://piston1.your-domain.com ` +
+    `if you terminate TLS. Nothing on the VM, Docker, Piston or its ports has to change.`
+  );
+}
