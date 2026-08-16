@@ -44,3 +44,6 @@ coverage/
 
 # Bootstrap configuration store (contains secrets)
 .data/
+
+# Vercel build output
+.vercel/
