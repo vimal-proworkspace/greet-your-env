@@ -194,6 +194,8 @@ function initialNodes(): { id: string; url: string; enabled: boolean; maxConcurr
 }
 
 async function seedNodes(client: PgClient): Promise<void> {
+  const rowsExisting = await client.unsafe("select count(*)::int as n from codearena_private.piston_nodes");
+  void rowsExisting;
   const rows = await client.unsafe("select count(*)::int as n from codearena_private.piston_nodes");
   if (Number(rows[0]?.["n"] ?? 0) > 0) return;
   for (const node of initialNodes()) {
