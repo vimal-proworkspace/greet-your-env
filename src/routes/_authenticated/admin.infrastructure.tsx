@@ -297,7 +297,7 @@ function AdminInfrastructure() {
                   id="url"
                   value={form.url}
                   onChange={(e) => setForm({ ...form, url: e.target.value })}
-                  placeholder="http://203.0.113.10:2000"
+                  placeholder="http://203.0.113.10:8080"
                 />
               </div>
               <div className="space-y-2">
