@@ -1217,6 +1217,41 @@ const testCaseInput = z.object({
   orderNo: z.coerce.number().int().min(1).max(1000),
 });
 
+/**
+ * Deletes a Round 3 problem. A problem that already has submissions is
+ * disabled instead of destroyed, so competition history is never lost.
+ */
+export const deleteCodeProblem = createServerFn({ method: "POST" })
+  .inputValidator((input: { id: string }) => z.object({ id: z.string().min(1) }).parse(input))
+  .handler(async ({ data }) => {
+    const { requireAdmin } = await import("./app-session.server");
+    const { nowIso, ownDb, audit } = await import("./own-db.server");
+    const claims = await requireAdmin();
+    const db = ownDb();
+    const { count } = await db
+      .from("programming_submissions")
+      .select("id", { count: "exact", head: true })
+      .eq("problemId", data.id);
+    if ((count ?? 0) > 0) {
+      const { error } = await db
+        .from("programming_problems")
+        .update({ isEnabled: false, updatedAt: nowIso() })
+        .eq("id", data.id);
+      if (error) throw new Error("Could not hide that problem.");
+      return { ok: true as const, deactivated: true };
+    }
+    await db.from("test_cases").delete().eq("problemId", data.id);
+    const { error } = await db.from("programming_problems").delete().eq("id", data.id);
+    if (error) throw new Error("Could not delete that problem.");
+    await audit({
+      actorUserId: claims.sub,
+      action: "code.problem.deleted",
+      entityType: "programming_problems",
+      entityId: data.id,
+    });
+    return { ok: true as const, deactivated: false };
+  });
+
 export const saveTestCase = createServerFn({ method: "POST" })
   .inputValidator((input: z.infer<typeof testCaseInput>) => testCaseInput.parse(input))
   .handler(async ({ data }) => {
