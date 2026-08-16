@@ -76,18 +76,41 @@ function SubmissionSuccess({
   roundName: string;
   nextRound: { id: string; name: string } | null;
 }) {
+  const navigate = useNavigate();
+  const [confirmNext, setConfirmNext] = useState(false);
   return (
     <div className="surface mb-5 rounded-lg border border-border/70 p-5">
       <Badge>Submission Successful</Badge>
       <p className="mt-3 text-sm text-muted-foreground">
-        {roundName} has been submitted and scored by the server. It is now locked.
+        {roundName} submitted successfully. It has been scored by the server and is now locked.
       </p>
       {nextRound ? (
-        <Button asChild className="mt-4">
-          <Link to="/rounds/$roundId" params={{ roundId: nextRound.id }}>
+        <>
+          <Button className="mt-4" onClick={() => setConfirmNext(true)}>
             Go to {nextRound.name}
-          </Link>
-        </Button>
+          </Button>
+          <AlertDialog open={confirmNext} onOpenChange={setConfirmNext}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Move to {nextRound.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to move to {nextRound.name}? {roundName} stays submitted and
+                  locked.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Stay in {roundName}</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() =>
+                    void navigate({ to: "/rounds/$roundId", params: { roundId: nextRound.id } })
+                  }
+                >
+                  Go to {nextRound.name}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
       ) : (
         <Button asChild className="mt-4">
           <Link to="/results">Finish Competition</Link>
