@@ -23,6 +23,8 @@ import {
   normalizeProviderBaseUrl,
   isEgressBlockedPort,
   describeEgressPortProblem,
+  isDirectIpHost,
+  describeDirectIpProblem,
 } from "./exec-engines";
 
 import { ExecutionServiceError, providerJson, type ExecInput, type ExecResult } from "./exec-error.server";
