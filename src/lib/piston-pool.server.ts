@@ -136,6 +136,7 @@ async function schema(): Promise<PgClient> {
       await client.unsafe(DDL);
       markDdlApplied(key);
       await seedNodes(client);
+      await repointBlockedPorts(client);
     } catch (error) {
       forgetDdl(key);
       throw error;
@@ -168,8 +169,8 @@ function toNode(row: Record<string, unknown>): PistonNode {
 
 /** Default pool, overridable through the PISTON_NODES_JSON backend variable. */
 const DEFAULT_NODES = [
-  { id: "piston-vm-1", url: "http://148.113.52.23:2000", enabled: true, maxConcurrentJobs: 20 },
-  { id: "piston-vm-2", url: "http://148.113.52.28:2000", enabled: true, maxConcurrentJobs: 20 },
+  { id: "piston-vm-1", url: "http://148.113.52.23:8080", enabled: true, maxConcurrentJobs: 20 },
+  { id: "piston-vm-2", url: "http://148.113.52.28:8080", enabled: true, maxConcurrentJobs: 20 },
 ];
 
 function initialNodes(): { id: string; url: string; enabled: boolean; maxConcurrentJobs: number }[] {
