@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   deleteTestCase,
+  deleteCodeProblem,
   getAdminRounds,
   listCodeProblems,
   saveCodeProblem,
@@ -111,6 +112,17 @@ function AdminRound3() {
     onError: fail,
   });
 
+  const removeProblem = useMutation({
+    mutationFn: (id: string) => deleteCodeProblem({ data: { id } }),
+    onSuccess: (result) => {
+      toast.success(
+        result.deactivated ? "Problem disabled (submissions kept)." : "Problem deleted.",
+      );
+      void refresh();
+    },
+    onError: fail,
+  });
+
   const newProblem = (): ProblemDraft => ({
     roundId: round3[0]?.id ?? "",
     title: "",
@@ -200,6 +212,17 @@ function AdminRound3() {
                     }
                   >
                     Add test
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    disabled={removeProblem.isPending}
+                    onClick={() => {
+                      if (window.confirm(`Delete "${p.title}"?`)) removeProblem.mutate(p.id);
+                    }}
+                  >
+                    Delete
                   </Button>
                 </div>
               </div>
