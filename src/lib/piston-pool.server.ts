@@ -474,9 +474,13 @@ export async function checkNode(node: PistonNode, persist = true): Promise<NodeH
     return { nodeId: node.nodeId, status: "DISABLED", latencyMs: 0, runtimes: 0, detail: "Disabled by administrator." };
   }
   const started = Date.now();
+  const finalUrl = `${node.url}/api/v2/runtimes`;
+  console.info(
+    `[piston-health] node=${node.nodeId} configuredUrl=${node.url} finalUrl=${finalUrl} method=GET headers=accept:application/json (no Authorization header is sent)`,
+  );
   try {
     const payload = await providerJson(
-      `${node.url}/api/v2/runtimes`,
+      finalUrl,
       { method: "GET", headers: { accept: "application/json" } },
       node.timeoutMs || HEALTH_TIMEOUT_MS,
       `Piston ${node.nodeId}`,
@@ -484,10 +488,14 @@ export async function checkNode(node: PistonNode, persist = true): Promise<NodeH
     );
     if (!Array.isArray(payload)) {
       const detail = "The endpoint answered with JSON that is not a Piston runtime list.";
+      console.error(`[piston-health] node=${node.nodeId} url=${finalUrl} unexpected JSON shape`);
       if (persist) await saveNodeHealth(node.nodeId, { status: "UNHEALTHY", error: detail });
       return { nodeId: node.nodeId, status: "UNHEALTHY", latencyMs: Date.now() - started, runtimes: 0, detail };
     }
     const latencyMs = Date.now() - started;
+    console.info(
+      `[piston-health] node=${node.nodeId} url=${finalUrl} status=200 contentType=application/json runtimes=${payload.length} ms=${latencyMs} -> ONLINE`,
+    );
     if (persist) await saveNodeHealth(node.nodeId, { status: "ONLINE", error: "", resetFailures: true });
     return {
       nodeId: node.nodeId,
@@ -498,9 +506,18 @@ export async function checkNode(node: PistonNode, persist = true): Promise<NodeH
     };
   } catch (err) {
     const raw = err instanceof ExecutionServiceError ? err.detail : err instanceof Error ? err.message : "unknown";
-    // A 403 on a port this backend is not allowed to dial is a hosting egress
-    // restriction, NOT a Piston authentication requirement. Say so plainly.
-    const detail = isEgressBlockedPort(node.url) ? `${describeEgressPortProblem(node.url)} (${raw})` : raw;
+    console.error(
+      `[piston-health] node=${node.nodeId} configuredUrl=${node.url} finalUrl=${finalUrl} errorType=${
+        err instanceof Error ? err.name : typeof err
+      } detail=${raw.slice(0, 400)} ms=${Date.now() - started}`,
+    );
+    // Never blame Piston authentication for a hosting-side network refusal.
+    const edgeBlocked = /error code: 100\d|direct ip|outbound network edge/i.test(raw);
+    const detail = isEgressBlockedPort(node.url)
+      ? `${describeEgressPortProblem(node.url)} (${raw})`
+      : edgeBlocked || isDirectIpHost(node.url)
+        ? `${describeDirectIpProblem(node.url)} (observed: ${raw})`
+        : raw;
     if (persist) await saveNodeHealth(node.nodeId, { status: "OFFLINE", error: detail });
     return { nodeId: node.nodeId, status: "OFFLINE", latencyMs: Date.now() - started, runtimes: 0, detail };
   }
