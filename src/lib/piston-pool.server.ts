@@ -136,6 +136,7 @@ async function schema(): Promise<PgClient> {
       await client.unsafe(DDL);
       markDdlApplied(key);
       await seedNodes(client);
+      await repointBlockedPorts(client);
     } catch (error) {
       forgetDdl(key);
       throw error;
@@ -168,8 +169,8 @@ function toNode(row: Record<string, unknown>): PistonNode {
 
 /** Default pool, overridable through the PISTON_NODES_JSON backend variable. */
 const DEFAULT_NODES = [
-  { id: "piston-vm-1", url: "http://148.113.52.23:2000", enabled: true, maxConcurrentJobs: 20 },
-  { id: "piston-vm-2", url: "http://148.113.52.28:2000", enabled: true, maxConcurrentJobs: 20 },
+  { id: "piston-vm-1", url: "http://148.113.52.23:8080", enabled: true, maxConcurrentJobs: 20 },
+  { id: "piston-vm-2", url: "http://148.113.52.28:8080", enabled: true, maxConcurrentJobs: 20 },
 ];
 
 function initialNodes(): { id: string; url: string; enabled: boolean; maxConcurrentJobs: number }[] {
@@ -207,6 +208,31 @@ async function seedNodes(client: PgClient): Promise<void> {
   console.info("[piston-pool] seeded initial Piston nodes");
 }
 
+/**
+ * One-time self-heal for pools seeded before the VMs were re-exposed: the
+ * hosting environment cannot dial outbound port 2000, so any node still
+ * pointing there is repointed to the routable 8080 listener of the same host.
+ */
+async function repointBlockedPorts(client: PgClient): Promise<void> {
+  try {
+    const rows = await client.unsafe(
+      `update codearena_private.piston_nodes
+          set url = replace(url, ':2000', ':8080'),
+              health_status = 'OFFLINE',
+              last_error = '',
+              failure_count = 0,
+              updated_at = now()
+        where url like '%:2000%'
+        returning node_id`,
+    );
+    if (rows.length) {
+      console.info(`[piston-pool] repointed ${rows.length} node(s) from blocked port 2000 to 8080`);
+    }
+  } catch (err) {
+    console.error("[piston-pool] could not repoint blocked-port nodes", err);
+  }
+}
+
 export async function listNodes(): Promise<PistonNode[]> {
   const client = await schema();
   const rows = await client.unsafe("select * from codearena_private.piston_nodes order by node_id asc");
@@ -241,7 +267,7 @@ export function validateNodeUrl(raw: string): { url: string; error: string | nul
       error:
         normalized.problem === "local_url"
           ? "localhost / 127.0.0.1 cannot be reached from the backend. Use the VM's routable address."
-          : "Enter a valid Piston API URL, for example http://203.0.113.10:2000",
+          : "Enter a valid Piston API URL, for example http://203.0.113.10:8080",
     };
   }
   let host = "";
