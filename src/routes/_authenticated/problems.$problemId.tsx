@@ -228,6 +228,7 @@ function DebugWorkspace({ problemId }: { problemId: string }) {
     mutationFn: () => submitDebugFix({ data: { problemId, sourceCode: value } }),
     onSuccess: (result) => {
       toast.success(result.message || "Submission evaluated.");
+      setLastScore(result);
       // Sample cases show full detail; hidden cases only report pass/fail.
       setDebugRuns(
         result.results.map((r) => ({
