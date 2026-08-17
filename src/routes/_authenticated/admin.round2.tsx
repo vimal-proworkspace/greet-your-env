@@ -234,14 +234,20 @@ function AdminRound2() {
 
   const submitProblem = (form: ProblemForm) => {
     const configured = form.id ? enabledTestMarks(form.id) : 0;
-    if (form.baseMarks + configured > form.marks) return toast.error(MARK_ERROR);
+    if (form.baseMarks + configured > form.marks) {
+      toast.error(MARK_ERROR);
+      return;
+    }
     saveProblem.mutate(form);
   };
   const submitTest = (form: TestForm) => {
     const problem = data?.problems.find((p) => p.id === form.problemId);
     const configured = enabledTestMarks(form.problemId, form.id);
     const total = (problem?.baseMarks ?? 0) + configured + (form.isEnabled ? form.marks : 0);
-    if (problem && total > problem.marks) return toast.error(MARK_ERROR);
+    if (problem && total > problem.marks) {
+      toast.error(MARK_ERROR);
+      return;
+    }
     saveTest.mutate(form);
   };
 
