@@ -4,6 +4,7 @@ import { getMySubmissions } from "@/lib/student.functions";
 import { AppShell, STUDENT_NAV } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatIst } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/submissions")({
   head: () => ({
@@ -45,7 +46,7 @@ function SubmissionsPage() {
                   <p className="truncate text-sm font-medium">{s.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {s.language} · {s.passedTests}/{s.totalTests} tests · {s.executionMs} ms ·{" "}
-                    {new Date(s.createdAt).toLocaleString()}
+                    {formatIst(s.createdAt)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -67,7 +68,7 @@ function SubmissionsPage() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{s.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {s.message || "Evaluated"} · {new Date(s.createdAt).toLocaleString()}
+                    {s.message || "Evaluated"} · {formatIst(s.createdAt)}
                   </p>
                 </div>
                 <span className="font-mono text-sm">{s.score}</span>

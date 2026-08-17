@@ -818,7 +818,7 @@ export const getSubmissionDetail = createServerFn({ method: "POST" })
     const problemTable = data.kind === "code" ? "programming_problems" : "debugging_problems";
     const { data: problem } = await db
       .from(problemTable)
-      .select("id, title, marks")
+      .select("*")
       .eq("id", str(row["problemId"]))
       .maybeSingle();
 
@@ -839,6 +839,28 @@ export const getSubmissionDetail = createServerFn({ method: "POST" })
       isFinal: Boolean(row["isFinal"]),
       sourceCode: str(row["sourceCode"]),
       result: JSON.stringify(row["resultJson"] ?? {}, null, 2),
+      // Round 2 scoring breakdown (base marks + per-test-case marks). Admin/HOD
+      // view, so hidden test details may be disclosed here.
+      breakdown:
+        data.kind === "debug"
+          ? ((row["resultJson"] ?? null) as {
+              maxMarks: number;
+              baseMarks: number;
+              baseScore: number;
+              basePassed: boolean;
+              testCaseScore: number;
+              totalScore: number;
+              testCases: {
+                testCaseId: string;
+                name: string;
+                hidden: boolean;
+                status: string;
+                marks: number;
+                marksAwarded: number;
+                durationMs: number;
+              }[];
+            } | null)
+          : null,
       submittedAt: str(row["submittedAt"] ?? row["createdAt"]),
     };
   });

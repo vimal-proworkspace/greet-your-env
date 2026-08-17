@@ -5,6 +5,7 @@ import { AppShell, ADMIN_NAV } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatIst } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/admin/violations")({
   head: () => ({
@@ -59,7 +60,7 @@ function AdminViolations() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{v.details || "—"}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(v.createdAt).toLocaleString()}
+                    {formatIst(v.createdAt)}
                   </TableCell>
                 </TableRow>
               ))}

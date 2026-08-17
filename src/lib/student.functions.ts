@@ -375,7 +375,7 @@ export const getDebugProblem = createServerFn({ method: "POST" })
         // Hidden cases are never sent to the browser — only their count.
         db
           .from("debug_test_cases")
-          .select("id, input, expectedOutput, isHidden, orderNo")
+          .select("id, input, expectedOutput, isHidden, isEnabled, orderNo")
           .eq("problemId", data.problemId)
           .order("orderNo", { ascending: true }),
       ]);
@@ -410,6 +410,7 @@ export const getDebugProblem = createServerFn({ method: "POST" })
         expectedBehavior: str(problem["expectedBehavior"]),
         buggyCode: str(problem["buggyCode"]),
         marks: num(problem["marks"]),
+        baseMarks: num(problem["baseMarks"]),
       },
 
       round: {
@@ -444,14 +445,16 @@ export const getDebugProblem = createServerFn({ method: "POST" })
 
       // Sample (visible) cases only; hidden cases are counted, never revealed.
       visibleTests: (tests ?? [])
-        .filter((t) => !(t as Row)["isHidden"])
+        .filter((t) => !(t as Row)["isHidden"] && (t as Row)["isEnabled"] !== false)
         .map((t) => ({
           id: str((t as Row)["id"]),
           input: str((t as Row)["input"]),
           expectedOutput: str((t as Row)["expectedOutput"]),
         })),
-      hiddenTestCount: (tests ?? []).filter((t) => Boolean((t as Row)["isHidden"])).length,
-      totalTests: (tests ?? []).length,
+      hiddenTestCount: (tests ?? []).filter(
+        (t) => Boolean((t as Row)["isHidden"]) && (t as Row)["isEnabled"] !== false,
+      ).length,
+      totalTests: (tests ?? []).filter((t) => (t as Row)["isEnabled"] !== false).length,
 
       submissions: (subs ?? []).map((s) => ({
         id: str((s as Row)["id"]),
@@ -614,6 +617,12 @@ export const submitDebugFix = createServerFn({ method: "POST" })
       message: evaluation.message,
       status: evaluation.status,
       score: evaluation.score,
+      // Safe scoring summary: totals only, never hidden inputs/expected output.
+      maxMarks: evaluation.maxMarks,
+      baseMarks: evaluation.baseMarks,
+      baseScore: evaluation.baseScore,
+      basePassed: evaluation.basePassed,
+      testCaseScore: evaluation.testCaseScore,
       passed: evaluation.passed,
       total: evaluation.total,
       results: evaluation.results,

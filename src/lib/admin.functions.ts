@@ -687,6 +687,7 @@ export const listDebugProblems = createServerFn({ method: "GET" }).handler(async
       starterCode: str(row["starterCode"]),
       solutionCode: str(row["solutionCode"]),
       marks: num(row["marks"]),
+      baseMarks: num(row["baseMarks"]),
       timeLimitSec: num(row["timeLimitSec"], 2),
       memoryLimitMb: num(row["memoryLimitMb"], 128),
       orderNo: num(row["orderNo"]),
@@ -697,9 +698,11 @@ export const listDebugProblems = createServerFn({ method: "GET" }).handler(async
         .map((t) => ({
           id: str((t as Row)["id"]),
           problemId: id,
+          name: str((t as Row)["name"]),
           input: str((t as Row)["input"]),
           expectedOutput: str((t as Row)["expectedOutput"]),
           isHidden: Boolean((t as Row)["isHidden"]),
+          isEnabled: (t as Row)["isEnabled"] !== false,
           marks: num((t as Row)["marks"], 1),
           orderNo: num((t as Row)["orderNo"], 1),
         })),
@@ -749,6 +752,7 @@ const debugProblemInput = z.object({
   starterCode: z.string().max(20_000).optional(),
   solutionCode: z.string().max(20_000).optional(),
   marks: z.coerce.number().int().min(1).max(1000),
+  baseMarks: z.coerce.number().int().min(0).max(1000).optional(),
   timeLimitSec: z.coerce.number().int().min(1).max(10).optional(),
   memoryLimitMb: z.coerce.number().int().min(8).max(512).optional(),
   orderNo: z.coerce.number().int().min(1).max(1000),
@@ -773,7 +777,24 @@ export const saveDebugProblem = createServerFn({ method: "POST" })
       solutionCode: rest.solutionCode ?? "",
       timeLimitSec: rest.timeLimitSec ?? 2,
       memoryLimitMb: rest.memoryLimitMb ?? 128,
+      baseMarks: rest.baseMarks ?? 0,
     };
+
+    // Server-side guard: base marks plus every enabled test case's marks must
+    // fit inside the problem's maximum marks.
+    if (fields.baseMarks > fields.marks)
+      throw new Error("Base marks + test case marks cannot exceed maximum marks.");
+    if (id) {
+      const { data: existing } = await db
+        .from("debug_test_cases")
+        .select("marks, isEnabled")
+        .eq("problemId", id);
+      const configured = (existing ?? [])
+        .filter((t) => (t as Row)["isEnabled"] !== false)
+        .reduce((s, t) => s + Number((t as Row)["marks"] ?? 0), 0);
+      if (fields.baseMarks + configured > fields.marks)
+        throw new Error("Base marks + test case marks cannot exceed maximum marks.");
+    }
 
     const problemId = id ?? newId();
     const result = id
@@ -849,9 +870,11 @@ export const deleteDebugProblem = createServerFn({ method: "POST" })
 const debugTestInput = z.object({
   id: z.string().min(1).optional(),
   problemId: z.string().min(1),
+  name: z.string().max(200).optional(),
   input: z.string().max(20_000),
   expectedOutput: z.string().max(20_000),
   isHidden: z.boolean(),
+  isEnabled: z.boolean().optional(),
   marks: z.coerce.number().int().min(1).max(1000),
   orderNo: z.coerce.number().int().min(1).max(1000),
 });
@@ -865,8 +888,26 @@ export const saveDebugTestCase = createServerFn({ method: "POST" })
     await requireAdmin();
     const db = ownDb();
     const now = nowIso();
-    const { id, ...fields } = data;
+    const { id, ...rest } = data;
+    const fields = { ...rest, name: rest.name ?? "", isEnabled: rest.isEnabled ?? true };
     const testId = id ?? newId();
+
+    // Base marks + enabled test-case marks must fit inside the maximum marks.
+    const [{ data: problem }, { data: siblings }] = await Promise.all([
+      db.from("debugging_problems").select("marks, baseMarks").eq("id", fields.problemId).maybeSingle(),
+      db.from("debug_test_cases").select("id, marks, isEnabled").eq("problemId", fields.problemId),
+    ]);
+    if (problem) {
+      const maxMarks = Number((problem as Row)["marks"] ?? 0);
+      const baseMarks = Number((problem as Row)["baseMarks"] ?? 0);
+      const others = (siblings ?? [])
+        .filter((t) => String((t as Row)["id"]) !== testId && (t as Row)["isEnabled"] !== false)
+        .reduce((s, t) => s + Number((t as Row)["marks"] ?? 0), 0);
+      const total = baseMarks + others + (fields.isEnabled ? fields.marks : 0);
+      if (total > maxMarks)
+        throw new Error("Base marks + test case marks cannot exceed maximum marks.");
+    }
+
     const result = id
       ? await db.from("debug_test_cases").update({ ...fields, updatedAt: now }).eq("id", id)
       : await db

@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatIst } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/admin/rounds")({
   head: () => ({
@@ -166,7 +167,7 @@ function AdminRounds() {
                   </p>
                   {r.startTime ? (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Started {new Date(r.startTime).toLocaleString()}
+                      Started {formatIst(r.startTime)}
                     </p>
                   ) : null}
                 </div>

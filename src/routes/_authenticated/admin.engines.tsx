@@ -1,3 +1,4 @@
+import { formatIst } from "@/lib/datetime";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -402,7 +403,7 @@ function AdminEngines() {
                     {event.fromStatus} → {event.toStatus}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(event.createdAt).toLocaleString()}
+                    {formatIst(event.createdAt)}
                   </span>
                   <span className="w-full truncate text-xs text-muted-foreground">{event.message}</span>
                 </li>
@@ -486,7 +487,7 @@ function EngineCard({
           </p>
           <p className="text-xs text-muted-foreground">
             Last health check:{" "}
-            {engine.lastHealthCheck ? new Date(engine.lastHealthCheck).toLocaleString() : "never"}
+            {engine.lastHealthCheck ? formatIst(engine.lastHealthCheck) : "never"}
           </p>
           {engine.healthDetail ? (
             <p
@@ -573,7 +574,7 @@ function TestPanel({ result }: { result: TestResult }) {
         compiler ? `Memory:     ${compiler.memoryKb} KB` : "",
         result.languages.length ? `Languages:  ${result.languages.slice(0, 12).join(", ")}` : "",
         `Diagnostic: ${result.detail}`,
-        `Tested:     ${new Date(result.testedAt).toLocaleString()}`,
+        `Tested:     ${formatIst(result.testedAt)}`,
       ]
         .filter(Boolean)
         .join("\n")}

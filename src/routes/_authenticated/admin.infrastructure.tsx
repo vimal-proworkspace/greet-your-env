@@ -1,3 +1,4 @@
+import { formatIst } from "@/lib/datetime";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -70,7 +71,7 @@ const HEALTH_STYLES: Record<NodeHealth, string> = {
 
 function when(value: string | null): string {
   if (!value) return "never";
-  return new Date(value).toLocaleString();
+  return formatIst(value);
 }
 
 function AdminInfrastructure() {

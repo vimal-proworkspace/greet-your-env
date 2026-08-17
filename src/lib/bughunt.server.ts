@@ -22,6 +22,28 @@ import { redactForStudent } from "./judge.server";
 
 export type BugFixSummary = { bugCode: string; title: string; marks: number };
 
+export type TestCaseAward = {
+  testCaseId: string;
+  name: string;
+  hidden: boolean;
+  status: string;
+  marks: number;
+  marksAwarded: number;
+  durationMs: number;
+  actualOutput?: string;
+  error?: string;
+};
+
+export type ScoreBreakdown = {
+  maxMarks: number;
+  baseMarks: number;
+  baseScore: number;
+  basePassed: boolean;
+  testCaseScore: number;
+  totalScore: number;
+  testCases: TestCaseAward[];
+};
+
 export type DebugEvaluation = {
   submissionId: string;
   awardedNow: number;
@@ -41,6 +63,12 @@ export type DebugEvaluation = {
   status: string;
   /** Hidden cases disclose pass/fail only. */
   results: TestOutcome[];
+  /** Two-level Round 2 scoring: base marks + passed test-case marks. */
+  baseMarks: number;
+  baseScore: number;
+  basePassed: boolean;
+  testCaseScore: number;
+  maxMarks: number;
 };
 
 
@@ -141,12 +169,16 @@ export async function evaluateDebugSubmission(input: {
     normalizeLanguage(input.language) ?? normalizeLanguage(input.problem["language"]) ?? "C";
 
   // Administrator-configured test cases decide the marks for this problem.
+  // Disabled cases are ignored entirely (never executed, never marked).
   const { data: testRows } = await db
     .from("debug_test_cases")
     .select("*")
     .eq("problemId", problemId)
     .order("orderNo", { ascending: true });
-  const tests = (testRows ?? []) as Row[];
+  const tests = ((testRows ?? []) as Row[]).filter((t) => t["isEnabled"] !== false);
+
+  const maxMarks = num(input.problem["marks"], 0);
+  const baseMarks = Math.max(0, Math.min(num(input.problem["baseMarks"], 0), maxMarks));
 
   let judged: JudgeResult | null = null;
   let execution: Awaited<ReturnType<typeof checkDebugCode>>;
@@ -179,15 +211,79 @@ export async function evaluateDebugSubmission(input: {
     });
   }
 
+  /*
+   * Two-level Round 2 scoring, computed here on the server only:
+   *   base marks   — awarded when the program compiles, runs and produces the
+   *                  expected output for the basic (public) evaluation;
+   *   test marks   — the marks of every passed enabled test case.
+   * The total can never exceed the problem's maximum marks.
+   */
+  const outcomeByIndex = new Map((judged?.results ?? []).map((r) => [r.index, r]));
+  const testCases: TestCaseAward[] = tests.map((t, i) => {
+    const outcome = outcomeByIndex.get(i + 1);
+    const marks = Math.max(0, num(t["marks"], 1));
+    const passed = Boolean(outcome?.passed);
+    return {
+      testCaseId: str(t["id"]),
+      name: str(t["name"]) || `Test case ${i + 1}`,
+      hidden: Boolean(t["isHidden"]),
+      status: !outcome
+        ? judged?.status === "COMPILE_ERROR"
+          ? "COMPILATION_ERROR"
+          : "NOT_RUN"
+        : passed
+          ? "PASS"
+          : /time/i.test(outcome.status ?? "")
+            ? "TIME_LIMIT_EXCEEDED"
+            : /compil/i.test(outcome.status ?? "")
+              ? "COMPILATION_ERROR"
+              : /runtime|error/i.test(outcome.status ?? "")
+                ? "RUNTIME_ERROR"
+                : "FAIL",
+      marks,
+      marksAwarded: passed ? marks : 0,
+      durationMs: outcome?.durationMs ?? 0,
+      ...(outcome?.actual !== undefined ? { actualOutput: outcome.actual } : {}),
+      ...(outcome?.error ? { error: outcome.error.slice(0, 2000) } : {}),
+    };
+  });
+
+  const compiled = execution.compiled && execution.serviceAvailable;
+  const publicCases = testCases.filter((t) => !t.hidden);
+  const basisCases = publicCases.length ? publicCases : testCases.slice(0, 1);
+  const basePassed =
+    compiled &&
+    (basisCases.length
+      ? basisCases.every((t) => t.status === "PASS")
+      : execution.executionOk);
+  const baseScore = basePassed ? baseMarks : 0;
+  const testCaseScore = compiled ? testCases.reduce((s, t) => s + t.marksAwarded, 0) : 0;
+  const totalScore = Math.max(0, Math.min(baseScore + testCaseScore, maxMarks || baseScore + testCaseScore));
+
+  const breakdown: ScoreBreakdown = {
+    maxMarks,
+    baseMarks,
+    baseScore,
+    basePassed,
+    testCaseScore,
+    totalScore,
+    testCases,
+  };
+
   const { error: subError } = await db.from("debugging_submissions").insert({
     id: submissionId,
     studentId: input.studentId,
     problemId,
+    // Immutable snapshot: the editor buffer is stored byte-for-byte, never
+    // formatted, trimmed or normalised.
     sourceCode: input.sourceCode,
     language,
     isFinal: input.isFinal ?? false,
     submittedAt: now,
     score: 0,
+    baseScore,
+    testCaseScore,
+    resultJson: breakdown,
     message: "",
     status: judged?.status ?? "",
     testsPassed: judged?.passed ?? 0,
@@ -245,7 +341,6 @@ export async function evaluateDebugSubmission(input: {
     }
   }
 
-  const testScore = judged?.score ?? 0;
   const message = !execution.serviceAvailable
     ? `Submission saved. ${execution.message}`
     : judged
@@ -256,7 +351,7 @@ export async function evaluateDebugSubmission(input: {
 
   await db
     .from("debugging_submissions")
-    .update({ score: testScore, message, updatedAt: nowIso() })
+    .update({ score: totalScore, message, updatedAt: nowIso() })
     .eq("id", submissionId);
 
   return {
@@ -271,7 +366,12 @@ export async function evaluateDebugSubmission(input: {
     durationMs: execution.durationMs,
     memoryKb: execution.memoryKb,
     message,
-    score: testScore,
+    score: totalScore,
+    baseMarks,
+    baseScore,
+    basePassed,
+    testCaseScore,
+    maxMarks,
     passed: judged?.passed ?? 0,
     total: judged?.total ?? 0,
     status: judged?.status ?? "",

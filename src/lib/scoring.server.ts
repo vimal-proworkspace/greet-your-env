@@ -34,9 +34,9 @@ async function round2Score(studentId: string, roundId: string): Promise<number> 
       .in("problemId", ids),
   ]);
   const bugMarks = (awards ?? []).reduce((sum, r) => sum + num((r as Row)["marksAwarded"]), 0);
+  // Best judged submission per problem counts (base marks + passed test marks).
   const best = new Map<string, number>();
   for (const row of subs ?? []) {
-    if (num((row as Row)["testsTotal"]) <= 0) continue;
     const pid = str((row as Row)["problemId"]);
     best.set(pid, Math.max(best.get(pid) ?? 0, num((row as Row)["score"])));
   }

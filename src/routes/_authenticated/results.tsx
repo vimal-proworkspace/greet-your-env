@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getMyResults } from "@/lib/student.functions";
 import { AppShell, STUDENT_NAV } from "@/components/AppShell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatIst } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/results")({
   head: () => ({
@@ -54,7 +55,7 @@ function ResultsPage() {
                 <div>
                   <p className="text-sm font-medium">{r.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {r.evaluatedAt ? `Evaluated ${new Date(r.evaluatedAt).toLocaleString()}` : "Not evaluated yet"}
+                    {r.evaluatedAt ? `Evaluated ${formatIst(r.evaluatedAt)}` : "Not evaluated yet"}
                   </p>
                 </div>
                 <span className="font-mono text-sm">
