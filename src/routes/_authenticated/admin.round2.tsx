@@ -52,6 +52,7 @@ type ProblemForm = {
   starterCode: string;
   solutionCode: string;
   marks: number;
+  baseMarks: number;
   timeLimitSec: number;
   memoryLimitMb: number;
   orderNo: number;
@@ -74,9 +75,11 @@ type BugForm = {
 type TestForm = {
   id?: string;
   problemId: string;
+  name: string;
   input: string;
   expectedOutput: string;
   isHidden: boolean;
+  isEnabled: boolean;
   marks: number;
   orderNo: number;
 };
@@ -93,6 +96,7 @@ const emptyProblem = (roundId: string, orderNo: number): ProblemForm => ({
   starterCode: "",
   solutionCode: "",
   marks: 20,
+  baseMarks: 2,
   timeLimitSec: 2,
   memoryLimitMb: 128,
   orderNo,
@@ -113,9 +117,11 @@ const emptyBug = (problemId: string, orderNo: number): BugForm => ({
 
 const emptyTest = (problemId: string, orderNo: number): TestForm => ({
   problemId,
+  name: `Test case ${orderNo}`,
   input: "",
   expectedOutput: "",
   isHidden: orderNo > 1,
+  isEnabled: true,
   marks: 1,
   orderNo,
 });
@@ -288,7 +294,9 @@ function AdminRound2() {
                         {p.orderNo}. {p.title}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {p.language} · {p.marks} marks · {p.tests.length} test cases (
+                        {p.language} · {p.marks} marks (base {p.baseMarks}) · configured{" "}
+                        {p.baseMarks + p.tests.filter((t) => t.isEnabled).reduce((sum, t) => sum + t.marks, 0)}/
+                        {p.marks} · {p.tests.length} test cases (
                         {p.tests.filter((t) => t.isHidden).length} hidden) ·{" "}
                         {p.bugs.filter((b) => b.isActive).length} bugs · {p.submissions} submissions
                       </p>
@@ -345,7 +353,8 @@ function AdminRound2() {
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm">
-                            {t.orderNo}. input: {t.input.replace(/\n/g, "⏎") || "—"}
+                            {t.orderNo}. {t.name || `Test case ${t.orderNo}`} · input:{" "}
+                            {t.input.replace(/\n/g, "⏎") || "—"}
                           </p>
                           <p className="truncate font-mono text-xs text-muted-foreground">
                             expected: {t.expectedOutput.replace(/\n/g, "⏎") || "—"} · {t.marks} marks
@@ -353,8 +362,9 @@ function AdminRound2() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant={t.isHidden ? "secondary" : "default"}>
-                            {t.isHidden ? "Hidden" : "Sample"}
+                            {t.isHidden ? "Hidden" : "Public"}
                           </Badge>
+                          {!t.isEnabled ? <Badge variant="secondary">Disabled</Badge> : null}
                           <Button
                             size="sm"
                             variant="secondary"
@@ -536,6 +546,10 @@ function TestCaseEditor({
   return (
     <div className="surface mt-6 space-y-4 rounded-lg border border-border/70 p-5">
       <h2 className="text-sm font-semibold">{form.id ? "Edit test case" : "New test case"}</h2>
+      <div>
+        <Label>Test case name</Label>
+        <Input value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <Label>Input (stdin)</Label>
@@ -554,7 +568,7 @@ function TestCaseEditor({
           />
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         <div>
           <Label>Marks</Label>
           <Input
@@ -578,8 +592,19 @@ function TestCaseEditor({
             value={form.isHidden ? "hidden" : "sample"}
             onChange={(e) => onChange({ ...form, isHidden: e.target.value === "hidden" })}
           >
-            <option value="sample">Sample (shown to students)</option>
+            <option value="sample">Public (shown to students)</option>
             <option value="hidden">Hidden (used for marking only)</option>
+          </select>
+        </div>
+        <div>
+          <Label>State</Label>
+          <select
+            className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={form.isEnabled ? "enabled" : "disabled"}
+            onChange={(e) => onChange({ ...form, isEnabled: e.target.value === "enabled" })}
+          >
+            <option value="enabled">Enabled</option>
+            <option value="disabled">Disabled</option>
           </select>
         </div>
       </div>
@@ -617,13 +642,21 @@ function ProblemEditor({
           <Label>Title</Label>
           <Input value={form.title} onChange={(e) => onChange({ ...form, title: e.target.value })} />
         </div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           <div>
-            <Label>Marks</Label>
+            <Label>Max marks</Label>
             <Input
               type="number"
               value={form.marks}
               onChange={(e) => onChange({ ...form, marks: Number(e.target.value) })}
+            />
+          </div>
+          <div>
+            <Label>Base marks</Label>
+            <Input
+              type="number"
+              value={form.baseMarks}
+              onChange={(e) => onChange({ ...form, baseMarks: Number(e.target.value) })}
             />
           </div>
           <div>
