@@ -1,3 +1,4 @@
+import { formatIst } from "@/lib/datetime";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -11,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
-import { formatIst } from "@/lib/datetime";
   checkPistonNode,
   deletePistonNode,
   listPistonNodes,
