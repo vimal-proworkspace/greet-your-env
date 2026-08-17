@@ -140,6 +140,19 @@ function DebugWorkspace({ problemId }: { problemId: string }) {
   const [stdin, setStdin] = useState("");
   const [confirmRound, setConfirmRound] = useState(false);
   const [debugRuns, setDebugRuns] = useState<TestRun[] | undefined>(undefined);
+  /** Safe server-computed score summary for the last submission (no hidden data). */
+  const [lastScore, setLastScore] = useState<{
+    compiled: boolean;
+    executionOk: boolean;
+    basePassed: boolean;
+    baseScore: number;
+    baseMarks: number;
+    testCaseScore: number;
+    passed: number;
+    total: number;
+    score: number;
+    maxMarks: number;
+  } | null>(null);
 
 
   const q = useQuery({
@@ -228,6 +241,7 @@ function DebugWorkspace({ problemId }: { problemId: string }) {
     mutationFn: () => submitDebugFix({ data: { problemId, sourceCode: value } }),
     onSuccess: (result) => {
       toast.success(result.message || "Submission evaluated.");
+      setLastScore(result);
       // Sample cases show full detail; hidden cases only report pass/fail.
       setDebugRuns(
         result.results.map((r) => ({
@@ -296,6 +310,26 @@ function DebugWorkspace({ problemId }: { problemId: string }) {
             </p>
             <CountdownTimer endsAt={endsAt} onExpire={() => q.refetch()} />
           </div>
+
+          {lastScore ? (
+            <div className="rounded-md border border-border/70 p-4">
+              <p className="text-sm font-semibold">Last submission result</p>
+              <ul className="mt-2 space-y-1 font-mono text-xs">
+                <li>Compilation: {lastScore.compiled ? "SUCCESS" : "FAILED"}</li>
+                <li>Execution: {lastScore.executionOk ? "SUCCESS" : "FAILED"}</li>
+                <li>
+                  Base evaluation: {lastScore.basePassed ? "PASSED" : "NOT PASSED"} · {lastScore.baseScore}/
+                  {lastScore.baseMarks} marks
+                </li>
+                <li>
+                  Additional tests: {lastScore.passed}/{lastScore.total} passed · {lastScore.testCaseScore} marks
+                </li>
+                <li className="pt-1 font-semibold">
+                  Score: {lastScore.score}/{lastScore.maxMarks}
+                </li>
+              </ul>
+            </div>
+          ) : null}
 
 
           {canPlay ? (
