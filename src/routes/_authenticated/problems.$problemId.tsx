@@ -140,6 +140,19 @@ function DebugWorkspace({ problemId }: { problemId: string }) {
   const [stdin, setStdin] = useState("");
   const [confirmRound, setConfirmRound] = useState(false);
   const [debugRuns, setDebugRuns] = useState<TestRun[] | undefined>(undefined);
+  /** Safe server-computed score summary for the last submission (no hidden data). */
+  const [lastScore, setLastScore] = useState<{
+    compiled: boolean;
+    executionOk: boolean;
+    basePassed: boolean;
+    baseScore: number;
+    baseMarks: number;
+    testCaseScore: number;
+    passed: number;
+    total: number;
+    score: number;
+    maxMarks: number;
+  } | null>(null);
 
 
   const q = useQuery({
