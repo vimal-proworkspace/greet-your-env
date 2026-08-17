@@ -22,6 +22,28 @@ import { redactForStudent } from "./judge.server";
 
 export type BugFixSummary = { bugCode: string; title: string; marks: number };
 
+export type TestCaseAward = {
+  testCaseId: string;
+  name: string;
+  hidden: boolean;
+  status: string;
+  marks: number;
+  marksAwarded: number;
+  durationMs: number;
+  actualOutput?: string;
+  error?: string;
+};
+
+export type ScoreBreakdown = {
+  maxMarks: number;
+  baseMarks: number;
+  baseScore: number;
+  basePassed: boolean;
+  testCaseScore: number;
+  totalScore: number;
+  testCases: TestCaseAward[];
+};
+
 export type DebugEvaluation = {
   submissionId: string;
   awardedNow: number;
@@ -41,6 +63,12 @@ export type DebugEvaluation = {
   status: string;
   /** Hidden cases disclose pass/fail only. */
   results: TestOutcome[];
+  /** Two-level Round 2 scoring: base marks + passed test-case marks. */
+  baseMarks: number;
+  baseScore: number;
+  basePassed: boolean;
+  testCaseScore: number;
+  maxMarks: number;
 };
 
 
