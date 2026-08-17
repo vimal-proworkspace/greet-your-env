@@ -617,6 +617,12 @@ export const submitDebugFix = createServerFn({ method: "POST" })
       message: evaluation.message,
       status: evaluation.status,
       score: evaluation.score,
+      // Safe scoring summary: totals only, never hidden inputs/expected output.
+      maxMarks: evaluation.maxMarks,
+      baseMarks: evaluation.baseMarks,
+      baseScore: evaluation.baseScore,
+      basePassed: evaluation.basePassed,
+      testCaseScore: evaluation.testCaseScore,
       passed: evaluation.passed,
       total: evaluation.total,
       results: evaluation.results,
