@@ -117,9 +117,60 @@ function AdminSubmissions() {
           ) : detail.isError ? (
             <p className="text-sm text-destructive">Could not load this submission.</p>
           ) : detail.data ? (
-            <pre className="max-h-[60vh] overflow-auto rounded-md bg-muted p-4 text-xs">
-              {JSON.stringify(detail.data, null, 2)}
-            </pre>
+            <div className="space-y-4">
+              <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+                {[
+                  ["Student", `${detail.data.studentName} (${detail.data.studentCode})`],
+                  ["Round", detail.data.kind === "debug" ? "Round 2 — Bug Hunt" : "Round 3 — Code Sprint"],
+                  ["Problem", detail.data.problemTitle],
+                  ["Language", detail.data.language],
+                  ["Submitted", formatIst(detail.data.submittedAt)],
+                  ["Execution status", detail.data.status],
+                  ["Score", `${detail.data.score}/${detail.data.maxMarks}`],
+                  ["Tests", detail.data.totalTests ? `${detail.data.passedTests}/${detail.data.totalTests}` : "—"],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="mono-label text-muted-foreground">{label}</dt>
+                    <dd className="mt-1 break-words">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {detail.data.breakdown ? (
+                <div className="rounded-md border border-border/70 p-4">
+                  <p className="text-sm font-semibold">Round 2 scoring breakdown</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Maximum marks: {detail.data.breakdown.maxMarks}
+                  </p>
+                  <ul className="mt-3 space-y-1 font-mono text-xs">
+                    <li>
+                      Base: {detail.data.breakdown.baseScore}/{detail.data.breakdown.baseMarks} ·{" "}
+                      {detail.data.breakdown.basePassed ? "PASS" : "FAIL"}
+                    </li>
+                    {detail.data.breakdown.testCases.map((t, i) => (
+                      <li key={t.testCaseId || i}>
+                        {t.name || `Test case ${i + 1}`} {t.hidden ? "(hidden)" : "(public)"}: {t.status}{" "}
+                        {t.marksAwarded}/{t.marks}
+                      </li>
+                    ))}
+                    <li className="pt-1 font-semibold">
+                      Final: {detail.data.breakdown.totalScore}/{detail.data.breakdown.maxMarks}
+                    </li>
+                  </ul>
+                </div>
+              ) : null}
+
+              <div>
+                <p className="mono-label text-muted-foreground">Source code (exactly as submitted)</p>
+                <pre className="mt-2 max-h-[45vh] overflow-auto whitespace-pre rounded-md bg-muted p-4 font-mono text-xs">
+                  {detail.data.sourceCode}
+                </pre>
+              </div>
+
+              {detail.data.message ? (
+                <p className="text-xs text-muted-foreground">{detail.data.message}</p>
+              ) : null}
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>
