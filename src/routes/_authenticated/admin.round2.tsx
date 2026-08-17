@@ -225,6 +225,26 @@ function AdminRound2() {
   const data = problemsQuery.data;
   const roundId = data?.round?.id ?? "";
 
+  /** Live client-side mirror of the server rule: base + enabled test marks <= max. */
+  const MARK_ERROR = "Base marks + test case marks cannot exceed maximum marks.";
+  const enabledTestMarks = (problemId: string, excludeTestId?: string) =>
+    (data?.problems.find((p) => p.id === problemId)?.tests ?? [])
+      .filter((t) => t.isEnabled && t.id !== excludeTestId)
+      .reduce((sum, t) => sum + t.marks, 0);
+
+  const submitProblem = (form: ProblemForm) => {
+    const configured = form.id ? enabledTestMarks(form.id) : 0;
+    if (form.baseMarks + configured > form.marks) return toast.error(MARK_ERROR);
+    saveProblem.mutate(form);
+  };
+  const submitTest = (form: TestForm) => {
+    const problem = data?.problems.find((p) => p.id === form.problemId);
+    const configured = enabledTestMarks(form.problemId, form.id);
+    const total = (problem?.baseMarks ?? 0) + configured + (form.isEnabled ? form.marks : 0);
+    if (problem && total > problem.marks) return toast.error(MARK_ERROR);
+    saveTest.mutate(form);
+  };
+
   return (
     <AppShell
       nav={ADMIN_NAV}
@@ -280,7 +300,7 @@ function AdminRound2() {
                 form={problemForm}
                 onChange={setProblemForm}
                 onCancel={() => setProblemForm(null)}
-                onSave={() => saveProblem.mutate(problemForm)}
+                onSave={() => submitProblem(problemForm)}
                 saving={saveProblem.isPending}
               />
             ) : null}
@@ -434,7 +454,7 @@ function AdminRound2() {
                 form={testForm}
                 onChange={setTestForm}
                 onCancel={() => setTestForm(null)}
-                onSave={() => saveTest.mutate(testForm)}
+                onSave={() => submitTest(testForm)}
                 saving={saveTest.isPending}
               />
             ) : null}
