@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
+import { formatIstTime } from "@/lib/datetime";
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -438,7 +439,7 @@ function DebugWorkspace({ problemId }: { problemId: string }) {
                     className="surface flex items-center justify-between gap-4 rounded-lg border border-border/70 px-4 py-2"
                   >
                     <p className="min-w-0 truncate text-xs text-muted-foreground">
-                      {new Date(s.createdAt).toLocaleTimeString()}
+                      {formatIstTime(s.createdAt)}
                       {s.testsTotal ? ` · ${s.testsPassed}/${s.testsTotal} tests` : ""} ·{" "}
                       {s.message}
                     </p>
@@ -797,7 +798,7 @@ function CodeWorkspace({ problemId }: { problemId: string }) {
               >
                 <span className="text-xs text-muted-foreground">
                   {s.language} · {s.passedTests}/{s.totalTests} ·{" "}
-                  {new Date(s.createdAt).toLocaleTimeString()}
+                  {formatIstTime(s.createdAt)}
                 </span>
                 <span className="font-mono text-sm">
                   {s.status} · {s.score}

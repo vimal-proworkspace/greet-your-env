@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getMyProfile } from "@/lib/student.functions";
 import { AppShell, STUDENT_NAV } from "@/components/AppShell";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatIst } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/profile")({
   head: () => ({
@@ -33,7 +34,7 @@ function ProfilePage() {
             ["Batch number", q.data?.batchNumber ?? "—"],
             ["Status", q.data?.status ?? "—"],
             ["Active sessions", String(q.data?.activeSessions ?? 0)],
-            ["Registered", q.data?.joinedAt ? new Date(q.data.joinedAt).toLocaleString() : "—"],
+            ["Registered", q.data?.joinedAt ? formatIst(q.data.joinedAt) : "—"],
           ].map(([label, value]) => (
             <div key={label} className="surface rounded-lg border border-border/70 p-5">
               <p className="mono-label text-muted-foreground">{label}</p>

@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
+import { formatIst } from "@/lib/datetime";
   checkPistonNode,
   deletePistonNode,
   listPistonNodes,
@@ -70,7 +71,7 @@ const HEALTH_STYLES: Record<NodeHealth, string> = {
 
 function when(value: string | null): string {
   if (!value) return "never";
-  return new Date(value).toLocaleString();
+  return formatIst(value);
 }
 
 function AdminInfrastructure() {

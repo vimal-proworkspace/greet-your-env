@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { formatIstTime } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/admin/monitor")({
   head: () => ({
@@ -122,7 +123,7 @@ function AdminMonitor() {
               <p className="text-sm font-semibold">{data?.event?.title ?? "No event"}</p>
               <p className="text-xs text-muted-foreground">
                 {online.length} online · {online.filter((s) => s.fullscreen).length} in fullscreen · server
-                time {new Date(data?.serverTime ?? Date.now()).toLocaleTimeString()}
+                time {formatIstTime(data?.serverTime ?? Date.now())}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -246,7 +247,7 @@ function AdminMonitor() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{a.student}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {a.details || a.type} · {new Date(a.createdAt).toLocaleTimeString()}
+                        {a.details || a.type} · {formatIstTime(a.createdAt)}
                       </p>
                     </div>
                     <Badge variant="outline" className={severityTone(a.severity)}>

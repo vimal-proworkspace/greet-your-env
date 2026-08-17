@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { formatIst } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/admin/submissions")({
   head: () => ({
@@ -85,7 +86,7 @@ function AdminSubmissions() {
                   </TableCell>
                   <TableCell className="font-mono text-xs">{s.score}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(s.createdAt).toLocaleString()}
+                    {formatIst(s.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="ghost" onClick={() => setOpen({ kind, id: s.id })}>

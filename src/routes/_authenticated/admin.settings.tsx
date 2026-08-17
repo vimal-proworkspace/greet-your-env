@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatIst } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/admin/settings")({
   head: () => ({
@@ -94,7 +95,7 @@ function AdminSettings() {
   const testPiston = useMutation({
     mutationFn: () => testPistonConnection({ data: { baseUrl: pistonBaseUrl } }),
     onSuccess: (r) => {
-      const stamp = new Date(r.testedAt).toLocaleString();
+      const stamp = formatIst(r.testedAt);
       if (r.connected) {
         setHealth(
           `Piston: CONNECTED\nC Runtime: ${r.cRuntimeVersion ? `C ${r.cRuntimeVersion} ` : ""}${r.cRuntimeAvailable ? "AVAILABLE" : "NOT FOUND"}\nC compile and execution: ${r.executionVerified ? "PASS" : "FAIL"}\nLast tested: ${stamp}`,

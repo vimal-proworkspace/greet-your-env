@@ -4,6 +4,7 @@ import { getAdminOverview } from "@/lib/admin.functions";
 import { AppShell, ADMIN_NAV } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatIstTime } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/admin/")({
   head: () => ({
@@ -81,7 +82,7 @@ function AdminOverview() {
                   <p className="truncate text-sm font-medium">{s.student}</p>
                   <p className="text-xs text-muted-foreground">
                     {s.language} · {s.passedTests}/{s.totalTests} tests ·{" "}
-                    {new Date(s.createdAt).toLocaleTimeString()}
+                    {formatIstTime(s.createdAt)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

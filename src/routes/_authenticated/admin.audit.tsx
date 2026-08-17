@@ -6,6 +6,7 @@ import { AppShell, ADMIN_NAV } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatIst } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/admin/audit")({
   head: () => ({
@@ -56,7 +57,7 @@ function AdminAudit() {
               {(q.data ?? []).map((l) => (
                 <TableRow key={l.id}>
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                    {new Date(l.createdAt).toLocaleString()}
+                    {formatIst(l.createdAt)}
                   </TableCell>
                   <TableCell className="text-xs">{l.actor}</TableCell>
                   <TableCell className="font-mono text-xs">{l.action}</TableCell>

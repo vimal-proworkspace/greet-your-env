@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { formatIst } from "@/lib/datetime";
 
 export const Route = createFileRoute("/_authenticated/admin/round2")({
   head: () => ({
@@ -463,7 +464,7 @@ function AdminRound2() {
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {r.batch || "—"} · {r.bugsFixed}/{resultsQuery.data.totalBugs} bugs ·{" "}
-                    {r.submittedAt ? new Date(r.submittedAt).toLocaleString() : "not submitted"}
+                    {r.submittedAt ? formatIst(r.submittedAt) : "not submitted"}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -504,7 +505,7 @@ function AdminRound2() {
                   <div className="mt-4 space-y-1">
                     {(detailQuery.data?.submissions ?? []).map((s) => (
                       <p key={s.id} className="text-xs text-muted-foreground">
-                        {new Date(s.createdAt).toLocaleString()} · {s.problem} · +{s.score} · {s.message}
+                        {formatIst(s.createdAt)} · {s.problem} · +{s.score} · {s.message}
                       </p>
                     ))}
                   </div>
