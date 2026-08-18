@@ -121,6 +121,19 @@ function rememberLimit(store: Map<string, number>, baseUrl: string, value: numbe
 }
 
 /** Extracts "<run|compile>_timeout cannot exceed the configured limit of N". */
+/**
+ * Turns Piston's "<lang>-* runtime is unknown" answer into a clear
+ * language-availability error instead of an infrastructure failure.
+ */
+function asLanguageError(err: unknown, target: EngineTarget, language: Language): unknown {
+  const text = err instanceof ExecutionServiceError ? err.detail : err instanceof Error ? err.message : "";
+  if (!/runtime is unknown/i.test(text)) return err;
+  return new LanguageUnavailableError(
+    `${LANGUAGE_LABELS[language]} is not installed on the execution engine. Please contact the event administrator.`,
+    `${target.name}: ${text}`,
+  );
+}
+
 function parseTimeoutLimits(err: unknown): { run?: number; compile?: number } | null {
   const text = err instanceof ExecutionServiceError ? err.detail : err instanceof Error ? err.message : "";
   if (!text) return null;
