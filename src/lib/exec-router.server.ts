@@ -323,6 +323,8 @@ export async function routeExecution(input: ExecInput): Promise<RoutedResult> {
   const candidates = candidatesFor(engines, language, mode);
   const executionId = crypto.randomUUID();
   const purpose = input.purpose ?? "RUN";
+  /** Set when the Piston pool was tried and failed for infrastructure reasons. */
+  let poolError: ExecutionServiceError | null = null;
 
 
   // ---------------------------------------------------------------------
