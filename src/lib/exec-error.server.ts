@@ -42,6 +42,18 @@ export class ExecutionServiceError extends Error {
 export type ConfigProblem = BaseUrlProblem | "disabled";
 
 /**
+ * The engine is healthy but simply does not have that language installed.
+ * This is a configuration fact, not a node fault: it must never mark a node
+ * unhealthy and never trigger a failover to another node.
+ */
+export class LanguageUnavailableError extends ExecutionServiceError {
+  constructor(message: string, detail: string) {
+    super(message, detail);
+    this.name = "LanguageUnavailableError";
+  }
+}
+
+/**
  * Strips trailing slashes and any provider API suffix. Thin wrapper over the one
  * shared normalizer so server and admin UI can never diverge.
  */
