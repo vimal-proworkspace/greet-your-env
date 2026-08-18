@@ -333,7 +333,6 @@ export async function routeExecution(input: ExecInput): Promise<RoutedResult> {
   // ---------------------------------------------------------------------
   if (!input.baseUrl?.trim()) {
     const poolStarted = Date.now();
-    poolAttempted = true;
     try {
       const { runOnPistonPool } = await import("./piston-pool.server");
       const pooled = await runOnPistonPool({ ...input, language });
