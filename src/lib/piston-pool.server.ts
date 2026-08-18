@@ -27,7 +27,13 @@ import {
   describeDirectIpProblem,
 } from "./exec-engines";
 
-import { ExecutionServiceError, providerJson, type ExecInput, type ExecResult } from "./exec-error.server";
+import {
+  ExecutionServiceError,
+  LanguageUnavailableError,
+  providerJson,
+  type ExecInput,
+  type ExecResult,
+} from "./exec-error.server";
 import { pistonAdapter } from "./engine-adapters.server";
 
 /* ------------------------------------------------------------------ */

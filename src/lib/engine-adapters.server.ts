@@ -22,6 +22,7 @@ import {
 } from "./exec-engines";
 import {
   ExecutionServiceError,
+  LanguageUnavailableError,
   NOT_CONFIGURED_MESSAGE,
   SERVICE_UNAVAILABLE_MESSAGE,
   providerJson,
@@ -213,7 +214,7 @@ export const pistonAdapter: ProviderAdapter = {
       // "run_timeout cannot exceed the configured limit of 3000" — learn the
       // node's ceiling, remember it and retry once with a valid payload.
       const limits = parseTimeoutLimits(err);
-      if (!limits) throw err;
+      if (!limits) throw asLanguageError(err, target, language);
       if (limits.run !== undefined) {
         rememberLimit(runLimits, baseUrl, limits.run);
         runTimeoutMs = Math.min(runTimeoutMs, limits.run);
@@ -222,7 +223,11 @@ export const pistonAdapter: ProviderAdapter = {
         rememberLimit(compileLimits, baseUrl, limits.compile);
         compileTimeoutMs = Math.min(compileTimeoutMs, limits.compile);
       }
-      payload = await send();
+      try {
+        payload = await send();
+      } catch (retryErr) {
+        throw asLanguageError(retryErr, target, language);
+      }
     }
 
     const durationMs = Date.now() - started;
