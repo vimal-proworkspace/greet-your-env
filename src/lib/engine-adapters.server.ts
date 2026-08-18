@@ -22,6 +22,7 @@ import {
 } from "./exec-engines";
 import {
   ExecutionServiceError,
+  LanguageUnavailableError,
   NOT_CONFIGURED_MESSAGE,
   SERVICE_UNAVAILABLE_MESSAGE,
   providerJson,
@@ -97,6 +98,53 @@ type PistonStage = {
 
 export type Runtime = { language: string; version: string; aliases?: string[] };
 
+/**
+ * Per-node timeout ceilings, learned from the node's own HTTP 400 answer and
+ * cached for the process so later executions are accepted on the first try.
+ */
+const runLimits = new Map<string, number>();
+const compileLimits = new Map<string, number>();
+/** Piston's stock configuration; used until a node tells us otherwise. */
+const DEFAULT_RUN_LIMIT_MS = 3_000;
+const DEFAULT_COMPILE_LIMIT_MS = 10_000;
+
+function runLimitFor(baseUrl: string): number {
+  return runLimits.get(baseUrl) ?? DEFAULT_RUN_LIMIT_MS;
+}
+
+function compileLimitFor(baseUrl: string): number {
+  return compileLimits.get(baseUrl) ?? DEFAULT_COMPILE_LIMIT_MS;
+}
+
+function rememberLimit(store: Map<string, number>, baseUrl: string, value: number) {
+  if (Number.isFinite(value) && value > 0) store.set(baseUrl, value);
+}
+
+/** Extracts "<run|compile>_timeout cannot exceed the configured limit of N". */
+/**
+ * Turns Piston's "<lang>-* runtime is unknown" answer into a clear
+ * language-availability error instead of an infrastructure failure.
+ */
+function asLanguageError(err: unknown, target: EngineTarget, language: Language): unknown {
+  const text = err instanceof ExecutionServiceError ? err.detail : err instanceof Error ? err.message : "";
+  if (!/runtime is unknown/i.test(text)) return err;
+  return new LanguageUnavailableError(
+    `${LANGUAGE_LABELS[language]} is not installed on the execution engine. Please contact the event administrator.`,
+    `${target.name}: ${text}`,
+  );
+}
+
+function parseTimeoutLimits(err: unknown): { run?: number; compile?: number } | null {
+  const text = err instanceof ExecutionServiceError ? err.detail : err instanceof Error ? err.message : "";
+  if (!text) return null;
+  const out: { run?: number; compile?: number } = {};
+  const run = /run_timeout cannot exceed the configured limit of (\d+)/i.exec(text);
+  const compile = /compile_timeout cannot exceed the configured limit of (\d+)/i.exec(text);
+  if (run?.[1]) out.run = Number(run[1]);
+  if (compile?.[1]) out.compile = Number(compile[1]);
+  return out.run === undefined && out.compile === undefined ? null : out;
+}
+
 export const pistonAdapter: ProviderAdapter = {
   flavour: "PISTON",
 
@@ -140,33 +188,60 @@ export const pistonAdapter: ProviderAdapter = {
     const baseUrl = requireBaseUrl(target);
     const language = requireLanguage(target, input.language);
     const spec = PISTON_LANGUAGES[language];
-    const runTimeoutMs = Math.min(Math.max((input.timeLimitSec ?? 2) * 1000, 500), 15_000);
+    // Piston instances enforce their own ceilings (commonly 3000ms run /
+    // 10000ms compile). Asking for more makes the API answer HTTP 400 and the
+    // whole execution fails, so we clamp up-front and adapt to whatever limit
+    // the node reports.
+    const requestedRunMs = Math.min(Math.max((input.timeLimitSec ?? 2) * 1000, 500), 15_000);
+    let runTimeoutMs = Math.min(requestedRunMs, runLimitFor(baseUrl));
+    let compileTimeoutMs = Math.min(10_000, compileLimitFor(baseUrl));
     const memoryBytes = Math.min(Math.max(input.memoryLimitMb ?? 128, 16), 512) * 1024 * 1024;
     const started = Date.now();
 
-    const payload = (await providerJson(
-      `${baseUrl}/api/v2/execute`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({
-          language: spec.piston,
-          version: "*",
-          files: [{ name: spec.file, content: input.code }],
-          stdin: input.stdin ?? "",
-          compile_timeout: 10_000,
-          run_timeout: runTimeoutMs,
-          run_memory_limit: memoryBytes,
-        }),
-      },
-      target.timeoutMs,
-      `${target.name} execute`,
-      undefined,
-      true,
-    )) as {
-      compile?: PistonStage;
-      run?: PistonStage;
-    } | null;
+    const send = async () =>
+      (await providerJson(
+        `${baseUrl}/api/v2/execute`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({
+            language: spec.piston,
+            version: "*",
+            files: [{ name: spec.file, content: input.code }],
+            stdin: input.stdin ?? "",
+            compile_timeout: compileTimeoutMs,
+            run_timeout: runTimeoutMs,
+            run_memory_limit: memoryBytes,
+          }),
+        },
+        target.timeoutMs,
+        `${target.name} execute`,
+        undefined,
+        true,
+      )) as { compile?: PistonStage; run?: PistonStage } | null;
+
+    let payload: { compile?: PistonStage; run?: PistonStage } | null;
+    try {
+      payload = await send();
+    } catch (err) {
+      // "run_timeout cannot exceed the configured limit of 3000" — learn the
+      // node's ceiling, remember it and retry once with a valid payload.
+      const limits = parseTimeoutLimits(err);
+      if (!limits) throw asLanguageError(err, target, language);
+      if (limits.run !== undefined) {
+        rememberLimit(runLimits, baseUrl, limits.run);
+        runTimeoutMs = Math.min(runTimeoutMs, limits.run);
+      }
+      if (limits.compile !== undefined) {
+        rememberLimit(compileLimits, baseUrl, limits.compile);
+        compileTimeoutMs = Math.min(compileTimeoutMs, limits.compile);
+      }
+      try {
+        payload = await send();
+      } catch (retryErr) {
+        throw asLanguageError(retryErr, target, language);
+      }
+    }
 
     const durationMs = Date.now() - started;
     const compile = payload?.compile ?? null;

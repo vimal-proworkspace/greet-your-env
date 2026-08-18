@@ -27,7 +27,13 @@ import {
   describeDirectIpProblem,
 } from "./exec-engines";
 
-import { ExecutionServiceError, providerJson, type ExecInput, type ExecResult } from "./exec-error.server";
+import {
+  ExecutionServiceError,
+  LanguageUnavailableError,
+  providerJson,
+  type ExecInput,
+  type ExecResult,
+} from "./exec-error.server";
 import { pistonAdapter } from "./engine-adapters.server";
 
 /* ------------------------------------------------------------------ */
@@ -719,6 +725,9 @@ export async function runOnPistonPool(input: ExecInput): Promise<PoolResult | nu
               err instanceof Error ? err.message : "unknown execution failure",
             );
       lastError = error;
+      // The language is not installed on the pool: retrying elsewhere cannot
+      // help and the node is not at fault.
+      if (error instanceof LanguageUnavailableError) throw error;
       console.error(`[piston-pool] ${node.nodeId} failed: ${error.detail}`);
       await noteFailure(node.nodeId, error.detail);
       await logExecution({

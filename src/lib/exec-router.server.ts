@@ -323,6 +323,8 @@ export async function routeExecution(input: ExecInput): Promise<RoutedResult> {
   const candidates = candidatesFor(engines, language, mode);
   const executionId = crypto.randomUUID();
   const purpose = input.purpose ?? "RUN";
+  /** Set when the Piston pool was tried and failed for infrastructure reasons. */
+  let poolError: ExecutionServiceError | null = null;
 
 
   // ---------------------------------------------------------------------
@@ -380,11 +382,17 @@ export async function routeExecution(input: ExecInput): Promise<RoutedResult> {
       });
       // A timed-out run may still be executing on the VM: never re-run it.
       if (error.uncertain) throw error;
+      // The language is not installed anywhere in the pool: no engine can help.
+      if (error.name === "LanguageUnavailableError") throw error;
+      poolError = error;
       // Otherwise fall through to the configured engines / Judge0 fallback.
     }
   }
 
   if (!candidates.length) {
+    // The pool was tried and genuinely failed: report *that*, never a
+    // misleading "not configured" message.
+    if (poolError) throw poolError;
     await writeExecutionRecord({
       executionId,
       submissionId: input.submissionId ?? null,
