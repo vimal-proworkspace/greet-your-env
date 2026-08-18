@@ -382,6 +382,8 @@ export async function routeExecution(input: ExecInput): Promise<RoutedResult> {
       });
       // A timed-out run may still be executing on the VM: never re-run it.
       if (error.uncertain) throw error;
+      // The language is not installed anywhere in the pool: no engine can help.
+      if (error.name === "LanguageUnavailableError") throw error;
       poolError = error;
       // Otherwise fall through to the configured engines / Judge0 fallback.
     }
