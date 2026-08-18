@@ -97,6 +97,40 @@ type PistonStage = {
 
 export type Runtime = { language: string; version: string; aliases?: string[] };
 
+/**
+ * Per-node timeout ceilings, learned from the node's own HTTP 400 answer and
+ * cached for the process so later executions are accepted on the first try.
+ */
+const runLimits = new Map<string, number>();
+const compileLimits = new Map<string, number>();
+/** Piston's stock configuration; used until a node tells us otherwise. */
+const DEFAULT_RUN_LIMIT_MS = 3_000;
+const DEFAULT_COMPILE_LIMIT_MS = 10_000;
+
+function runLimitFor(baseUrl: string): number {
+  return runLimits.get(baseUrl) ?? DEFAULT_RUN_LIMIT_MS;
+}
+
+function compileLimitFor(baseUrl: string): number {
+  return compileLimits.get(baseUrl) ?? DEFAULT_COMPILE_LIMIT_MS;
+}
+
+function rememberLimit(store: Map<string, number>, baseUrl: string, value: number) {
+  if (Number.isFinite(value) && value > 0) store.set(baseUrl, value);
+}
+
+/** Extracts "<run|compile>_timeout cannot exceed the configured limit of N". */
+function parseTimeoutLimits(err: unknown): { run?: number; compile?: number } | null {
+  const text = err instanceof ExecutionServiceError ? err.detail : err instanceof Error ? err.message : "";
+  if (!text) return null;
+  const out: { run?: number; compile?: number } = {};
+  const run = /run_timeout cannot exceed the configured limit of (\d+)/i.exec(text);
+  const compile = /compile_timeout cannot exceed the configured limit of (\d+)/i.exec(text);
+  if (run?.[1]) out.run = Number(run[1]);
+  if (compile?.[1]) out.compile = Number(compile[1]);
+  return out.run === undefined && out.compile === undefined ? null : out;
+}
+
 export const pistonAdapter: ProviderAdapter = {
   flavour: "PISTON",
 
