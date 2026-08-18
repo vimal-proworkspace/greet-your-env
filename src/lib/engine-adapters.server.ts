@@ -140,33 +140,56 @@ export const pistonAdapter: ProviderAdapter = {
     const baseUrl = requireBaseUrl(target);
     const language = requireLanguage(target, input.language);
     const spec = PISTON_LANGUAGES[language];
-    const runTimeoutMs = Math.min(Math.max((input.timeLimitSec ?? 2) * 1000, 500), 15_000);
+    // Piston instances enforce their own ceilings (commonly 3000ms run /
+    // 10000ms compile). Asking for more makes the API answer HTTP 400 and the
+    // whole execution fails, so we clamp up-front and adapt to whatever limit
+    // the node reports.
+    const requestedRunMs = Math.min(Math.max((input.timeLimitSec ?? 2) * 1000, 500), 15_000);
+    let runTimeoutMs = Math.min(requestedRunMs, runLimitFor(baseUrl));
+    let compileTimeoutMs = Math.min(10_000, compileLimitFor(baseUrl));
     const memoryBytes = Math.min(Math.max(input.memoryLimitMb ?? 128, 16), 512) * 1024 * 1024;
     const started = Date.now();
 
-    const payload = (await providerJson(
-      `${baseUrl}/api/v2/execute`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({
-          language: spec.piston,
-          version: "*",
-          files: [{ name: spec.file, content: input.code }],
-          stdin: input.stdin ?? "",
-          compile_timeout: 10_000,
-          run_timeout: runTimeoutMs,
-          run_memory_limit: memoryBytes,
-        }),
-      },
-      target.timeoutMs,
-      `${target.name} execute`,
-      undefined,
-      true,
-    )) as {
-      compile?: PistonStage;
-      run?: PistonStage;
-    } | null;
+    const send = async () =>
+      (await providerJson(
+        `${baseUrl}/api/v2/execute`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({
+            language: spec.piston,
+            version: "*",
+            files: [{ name: spec.file, content: input.code }],
+            stdin: input.stdin ?? "",
+            compile_timeout: compileTimeoutMs,
+            run_timeout: runTimeoutMs,
+            run_memory_limit: memoryBytes,
+          }),
+        },
+        target.timeoutMs,
+        `${target.name} execute`,
+        undefined,
+        true,
+      )) as { compile?: PistonStage; run?: PistonStage } | null;
+
+    let payload: { compile?: PistonStage; run?: PistonStage } | null;
+    try {
+      payload = await send();
+    } catch (err) {
+      // "run_timeout cannot exceed the configured limit of 3000" — learn the
+      // node's ceiling, remember it and retry once with a valid payload.
+      const limits = parseTimeoutLimits(err);
+      if (!limits) throw err;
+      if (limits.run !== undefined) {
+        rememberLimit(runLimits, baseUrl, limits.run);
+        runTimeoutMs = Math.min(runTimeoutMs, limits.run);
+      }
+      if (limits.compile !== undefined) {
+        rememberLimit(compileLimits, baseUrl, limits.compile);
+        compileTimeoutMs = Math.min(compileTimeoutMs, limits.compile);
+      }
+      payload = await send();
+    }
 
     const durationMs = Date.now() - started;
     const compile = payload?.compile ?? null;
