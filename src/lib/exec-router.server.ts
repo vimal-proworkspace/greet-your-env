@@ -333,6 +333,7 @@ export async function routeExecution(input: ExecInput): Promise<RoutedResult> {
   // ---------------------------------------------------------------------
   if (!input.baseUrl?.trim()) {
     const poolStarted = Date.now();
+    poolAttempted = true;
     try {
       const { runOnPistonPool } = await import("./piston-pool.server");
       const pooled = await runOnPistonPool({ ...input, language });
@@ -380,11 +381,15 @@ export async function routeExecution(input: ExecInput): Promise<RoutedResult> {
       });
       // A timed-out run may still be executing on the VM: never re-run it.
       if (error.uncertain) throw error;
+      poolError = error;
       // Otherwise fall through to the configured engines / Judge0 fallback.
     }
   }
 
   if (!candidates.length) {
+    // The pool was tried and genuinely failed: report *that*, never a
+    // misleading "not configured" message.
+    if (poolError) throw poolError;
     await writeExecutionRecord({
       executionId,
       submissionId: input.submissionId ?? null,
